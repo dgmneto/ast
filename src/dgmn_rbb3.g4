@@ -28,7 +28,7 @@ expression:	expression ('&&'|'<'|'+'|'-'|'*') expression
 identifier: IDENTIFIER;
 
 IDENTIFIER: [a-zA-Z_]([a-zA-Z0-9_])*;
-INTEGER_LITERAL: ([0-9])*;
+INTEGER_LITERAL: ([0-9])+;
 WHITE_SPACE: [ \r\t\n] -> skip;
 SINGLE_LINE_COMMENT: '//'(~[\n\r])* -> skip;
 MULTI_LINE_COMENT: '/*' .*? '*/' -> skip;

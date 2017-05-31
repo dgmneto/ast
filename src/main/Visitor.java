@@ -90,7 +90,7 @@ public class Visitor extends AbstractParseTreeVisitor<Object> implements dgmn_rb
 		Type ret = null;
 		if(ctx.identifier() != null) {
 			ret = new IdentifierType(ctx.identifier().getText());
-		} else if(ctx.getChild(0).getText() == "boolean") {
+		} else if(ctx.getChild(0).getText().equals("boolean")) {
 			ret = new BooleanType();
 		} else if(ctx.getChildCount() == 1) {
 			ret = new IntegerType();
@@ -179,7 +179,7 @@ public class Visitor extends AbstractParseTreeVisitor<Object> implements dgmn_rb
 					ret = new ArrayLength(e);
 				} else {
 					Exp e = (Exp) this.visit(ctx.expression(0));
-					ret = new Parenthesis(e);
+					ret = e;
 				}
 				break;
 			} case 2: {

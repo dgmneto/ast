@@ -1,5 +1,6 @@
 package visitor;
 
+import symboltable.Method;
 import symboltable.SymbolTable;
 import ast.And;
 import ast.ArrayAssign;
@@ -27,7 +28,6 @@ import ast.Minus;
 import ast.NewArray;
 import ast.NewObject;
 import ast.Not;
-import ast.Parenthesis;
 import ast.Plus;
 import ast.Print;
 import ast.Program;
@@ -41,8 +41,10 @@ import ast.While;
 public class TypeCheckVisitor implements TypeVisitor {
 
 	private SymbolTable symbolTable;
+	private symboltable.Class currClass = null;
+	private Method currMethod = null;
 
-	TypeCheckVisitor(SymbolTable st) {
+	public TypeCheckVisitor(SymbolTable st) {
 		symbolTable = st;
 	}
 
@@ -60,9 +62,13 @@ public class TypeCheckVisitor implements TypeVisitor {
 	// Statement s;
 	public Type visit(MainClass n) {
 		n.i1.accept(this);
+		currClass = symbolTable.getClass(n.i1.s);
+		currMethod = currClass.getMethod("main");
 		n.i2.accept(this);
 		n.s.accept(this);
-		return null;
+		currClass = null;
+		currMethod = null;
+		return new IdentifierType(n.i1.s);
 	}
 
 	// Identifier i;
@@ -70,13 +76,15 @@ public class TypeCheckVisitor implements TypeVisitor {
 	// MethodDeclList ml;
 	public Type visit(ClassDeclSimple n) {
 		n.i.accept(this);
+		currClass = symbolTable.getClass(n.i.s);
 		for (int i = 0; i < n.vl.size(); i++) {
 			n.vl.elementAt(i).accept(this);
 		}
 		for (int i = 0; i < n.ml.size(); i++) {
 			n.ml.elementAt(i).accept(this);
 		}
-		return null;
+		currClass = null;
+		return new IdentifierType(n.i.s);
 	}
 
 	// Identifier i;
@@ -86,21 +94,27 @@ public class TypeCheckVisitor implements TypeVisitor {
 	public Type visit(ClassDeclExtends n) {
 		n.i.accept(this);
 		n.j.accept(this);
+		if(!symbolTable.containsClass(n.j.s)) {
+			System.out.printf("Classe %s não declarada\n", n.j.s);
+			System.exit(0);
+		}
+		currClass = symbolTable.getClass(n.i.s);
 		for (int i = 0; i < n.vl.size(); i++) {
 			n.vl.elementAt(i).accept(this);
 		}
 		for (int i = 0; i < n.ml.size(); i++) {
 			n.ml.elementAt(i).accept(this);
 		}
-		return null;
+		currClass = null;
+		return new IdentifierType(n.i.s);
 	}
 
 	// Type t;
 	// Identifier i;
 	public Type visit(VarDecl n) {
-		n.t.accept(this);
+		Type te = n.t.accept(this);
 		n.i.accept(this);
-		return null;
+		return te;
 	}
 
 	// Type t;
@@ -110,8 +124,9 @@ public class TypeCheckVisitor implements TypeVisitor {
 	// StatementList sl;
 	// Exp e;
 	public Type visit(MethodDecl n) {
-		n.t.accept(this);
+		Type te = n.t.accept(this);
 		n.i.accept(this);
+		currMethod = currClass.getMethod(n.i.s);
 		for (int i = 0; i < n.fl.size(); i++) {
 			n.fl.elementAt(i).accept(this);
 		}
@@ -121,33 +136,42 @@ public class TypeCheckVisitor implements TypeVisitor {
 		for (int i = 0; i < n.sl.size(); i++) {
 			n.sl.elementAt(i).accept(this);
 		}
-		n.e.accept(this);
-		return null;
+		Type ret = n.e.accept(this);
+		if(!symbolTable.compareTypes(te, ret)) {
+			System.out.printf("Tipo de retorno inválido no método %s\n", n.i.s);
+			System.exit(0);
+		}
+		currMethod = null;
+		return te;
 	}
 
 	// Type t;
 	// Identifier i;
 	public Type visit(Formal n) {
-		n.t.accept(this);
+		Type te = n.t.accept(this);
 		n.i.accept(this);
-		return null;
+		return te;
 	}
-
+ 
 	public Type visit(IntArrayType n) {
-		return null;
+		return n;
 	}
 
 	public Type visit(BooleanType n) {
-		return null;
+		return n;
 	}
 
 	public Type visit(IntegerType n) {
-		return null;
+		return n;
 	}
 
 	// String s;
 	public Type visit(IdentifierType n) {
-		return null;
+		if(!symbolTable.containsClass(n.s)) {
+			System.out.printf("A classe %s não foi declarada\n", n.s);
+			System.exit(0);
+		}
+		return n;
 	}
 
 	// StatementList sl;
@@ -161,7 +185,11 @@ public class TypeCheckVisitor implements TypeVisitor {
 	// Exp e;
 	// Statement s1,s2;
 	public Type visit(If n) {
-		n.e.accept(this);
+		Type ife = n.e.accept(this);
+		if(!(ife instanceof BooleanType)) {
+			System.out.println("\"if\" deve conter expressão com retorno booleano");
+			System.exit(0);
+		}
 		n.s1.accept(this);
 		n.s2.accept(this);
 		return null;
@@ -170,14 +198,22 @@ public class TypeCheckVisitor implements TypeVisitor {
 	// Exp e;
 	// Statement s;
 	public Type visit(While n) {
-		n.e.accept(this);
+		Type whilee = n.e.accept(this);
+		if(!(whilee instanceof BooleanType)) {
+			System.out.println("\"while\" deve conter expressão com retorno booleano");
+			System.exit(0);
+		}
 		n.s.accept(this);
 		return null;
 	}
 
 	// Exp e;
 	public Type visit(Print n) {
-		n.e.accept(this);
+		Type printe = n.e.accept(this);
+		if(printe instanceof IdentifierType) {
+			System.out.println("Somente valores literais podem ser impressos");
+			System.exit(0);
+		}
 		return null;
 	}
 
@@ -185,126 +221,191 @@ public class TypeCheckVisitor implements TypeVisitor {
 	// Exp e;
 	public Type visit(Assign n) {
 		n.i.accept(this);
-		n.e.accept(this);
-		return null;
+		Type ee = n.e.accept(this);
+		if(!symbolTable.compareTypes(symbolTable.getVarType(currMethod, currClass, n.i.s), ee)) {
+			System.out.println("Atribuição entre tipos incompatíveis");
+			System.exit(0);
+		}
+		return ee;
 	}
 
 	// Identifier i;
 	// Exp e1,e2;
 	public Type visit(ArrayAssign n) {
 		n.i.accept(this);
-		n.e1.accept(this);
-		n.e2.accept(this);
+		if(!(symbolTable.getVarType(currMethod, currClass, n.i.s) instanceof IntArrayType)) {
+			System.out.println("Acesso a índice de variável que não é um array");
+			System.exit(0);
+		}
+		Type e1e = n.e1.accept(this);
+		if(!(e1e instanceof IntegerType)) {
+			System.out.println("O acesso ao array deve ser feito através de um inteiro");
+			System.exit(0);
+		}
+		Type e2e = n.e2.accept(this);
+		if(!(e2e instanceof IntegerType)) {
+			System.out.println("Atribuição entre tipos incompatíveis");
+			System.exit(0);
+		}
 		return null;
 	}
 
 	// Exp e1,e2;
 	public Type visit(And n) {
-		n.e1.accept(this);
-		n.e2.accept(this);
-		return null;
+		Type e1e = n.e1.accept(this);
+		Type e2e = n.e2.accept(this);
+		if(!(e1e instanceof BooleanType) || !(e2e instanceof BooleanType)) {
+			System.out.println("Operação entre tipos incompatíveis");
+			System.exit(0);
+		}
+		return new BooleanType();
 	}
 
 	// Exp e1,e2;
 	public Type visit(LessThan n) {
-		n.e1.accept(this);
-		n.e2.accept(this);
-		return null;
+		Type e1e = n.e1.accept(this);
+		Type e2e = n.e2.accept(this);
+		if(!(e1e instanceof IntegerType) || !(e2e instanceof IntegerType)) {
+			System.out.println("Operação entre tipos incompatíveis");
+			System.exit(0);
+		}
+		return new BooleanType();
 	}
 
 	// Exp e1,e2;
 	public Type visit(Plus n) {
-		n.e1.accept(this);
-		n.e2.accept(this);
-		return null;
+		Type e1e = n.e1.accept(this);
+		Type e2e = n.e2.accept(this);
+		if(!(e1e instanceof IntegerType) || !(e2e instanceof IntegerType)) {
+			System.out.println("Operação entre tipos incompatíveis");
+			System.exit(0);
+		}
+		return new IntegerType();
 	}
 
 	// Exp e1,e2;
 	public Type visit(Minus n) {
-		n.e1.accept(this);
-		n.e2.accept(this);
-		return null;
+		Type e1e = n.e1.accept(this);
+		Type e2e = n.e2.accept(this);
+		if(!(e1e instanceof IntegerType) || !(e2e instanceof IntegerType)) {
+			System.out.println("Operação entre tipos incompatíveis");
+			System.exit(0);
+		}
+		return new IntegerType();
 	}
 
 	// Exp e1,e2;
 	public Type visit(Times n) {
-		n.e1.accept(this);
-		n.e2.accept(this);
-		return null;
+		Type e1e = n.e1.accept(this);
+		Type e2e = n.e2.accept(this);
+		if(!(e1e instanceof IntegerType) || !(e2e instanceof IntegerType)) {
+			System.out.println("Operação entre tipos incompatíveis");
+			System.exit(0);
+		}
+		return new IntegerType();
 	}
 
 	// Exp e1,e2;
 	public Type visit(ArrayLookup n) {
-		n.e1.accept(this);
-		n.e2.accept(this);
-		return null;
+		Type e1e = n.e1.accept(this);
+		Type e2e = n.e2.accept(this);
+		if(!(e1e instanceof IntArrayType)) {
+			System.out.println("Acesso a índice de variável que não é um array");
+			System.exit(0);
+		}
+		if(!(e2e instanceof IntegerType)) {
+			System.out.println("O acesso ao array deve ser feito através de um inteiro");
+			System.exit(0);
+		}
+		return new IntegerType();
 	}
 
 	// Exp e;
 	public Type visit(ArrayLength n) {
-		n.e.accept(this);
-		return null;
+		Type ee = n.e.accept(this);
+		if(!(ee instanceof IntArrayType)) {
+			System.out.println("O atributo length só é definido para arrays");
+			System.exit(0);
+		}
+		return new IntegerType();
 	}
 
 	// Exp e;
 	// Identifier i;
 	// ExpList el;
 	public Type visit(Call n) {
-		n.e.accept(this);
-		n.i.accept(this);
-		for (int i = 0; i < n.el.size(); i++) {
-			n.el.elementAt(i).accept(this);
+		Type ee = n.e.accept(this);
+		if(!(ee instanceof IdentifierType)) {
+			System.out.println("Tipos literais não tem métodos definidos");
+			System.exit(0);
 		}
-		return null;
+		symboltable.Class c = symbolTable.getClass(((IdentifierType)ee).s);
+		n.i.accept(this);
+		Method m = symbolTable.getMethod(n.i.s, c.getId());
+		for (int i = 0; i < n.el.size(); i++) {
+			Type ele = n.el.elementAt(i).accept(this);
+			if(!symbolTable.compareTypes(m.getParamAt(i).type(), ele)) {
+				System.out.printf("O parâmetro de índice %d não é compatível no método %s\n", i, m.getId());
+				System.exit(0);
+			}
+		}
+		return m.type();
 	}
 
 	// int i;
 	public Type visit(IntegerLiteral n) {
-		return null;
+		return new IntegerType();
 	}
 
 	public Type visit(True n) {
-		return null;
+		return new BooleanType();
 	}
 
 	public Type visit(False n) {
-		return null;
+		return new BooleanType();
 	}
 
 	// String s;
 	public Type visit(IdentifierExp n) {
-		return null;
+		return symbolTable.getVarType(currMethod, currClass, n.s);
 	}
 
 	public Type visit(This n) {
-		return null;
+		return new IdentifierType(currClass.getId());
 	}
 
 	// Exp e;
 	public Type visit(NewArray n) {
-		n.e.accept(this);
-		return null;
+		Type ee = n.e.accept(this);
+		if(!(ee instanceof IntegerType)) {
+			System.out.println("Um array deve ser inicializado com um valor inteiro");
+			System.exit(0);
+		}
+		return new IntArrayType();
 	}
 
 	// Identifier i;
 	public Type visit(NewObject n) {
-		return null;
+		n.i.accept(this);
+		if(!symbolTable.containsClass(n.i.s)) {
+			System.out.printf("A classe %s não foi declarada\n", n.i.s);
+			System.exit(0);
+		}
+		return new IdentifierType(n.i.s);
 	}
 
 	// Exp e;
 	public Type visit(Not n) {
-		n.e.accept(this);
-		return null;
+		Type ee = n.e.accept(this);
+		if(!(ee instanceof BooleanType)) {
+			System.out.println("Operação entre tipo incompatível");
+			System.exit(0);
+		}
+		return new BooleanType();
 	}
 
 	// String s;
 	public Type visit(Identifier n) {
-		return null;
-	}
-	
-	// Exp e
-	public Type visit(Parenthesis n) {
-		n.e.accept(this);
 		return null;
 	}
 }

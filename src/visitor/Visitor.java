@@ -37,5 +37,4 @@ public interface Visitor {
   public void visit(NewObject n);
   public void visit(Not n);
   public void visit(Identifier n);
-  public void visit(Parenthesis n);
 }

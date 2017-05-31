@@ -10,8 +10,8 @@ public class Method {
 
 	String id;
 	Type type;
-	Vector<Variable> params;
-	Hashtable<Object, Variable> vars;
+	public Vector<Variable> params;
+	public Hashtable<Object, Variable> vars;
 
 	public Method(String id, Type type) {
 		this.id = id;

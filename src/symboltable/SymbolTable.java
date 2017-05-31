@@ -12,7 +12,7 @@ import ast.Type;
 
 public class SymbolTable {
 
-	private Hashtable<Object, Object> hashtable;
+	public Hashtable<Object, Object> hashtable;
 
 	public SymbolTable() {
 		hashtable = new Hashtable<Object, Object>();

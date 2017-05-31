@@ -26,7 +26,6 @@ import ast.Minus;
 import ast.NewArray;
 import ast.NewObject;
 import ast.Not;
-import ast.Parenthesis;
 import ast.Plus;
 import ast.Print;
 import ast.Program;
@@ -362,12 +361,5 @@ public class PrettyPrintVisitor implements Visitor {
 	// String s;
 	public void visit(Identifier n) {
 		System.out.print(n.s);
-	}
-	
-	// Exp e;
-	public void visit(Parenthesis n) {
-		System.out.print("(");
-		n.e.accept(this);
-		System.out.print(")");
 	}
 }

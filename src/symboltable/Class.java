@@ -9,8 +9,8 @@ import ast.Type;
 public class Class {
 
 	String id;
-	Hashtable<Object, Method> methods;
-	Hashtable<Object, Variable> globals;
+	public Hashtable<Object, Method> methods;
+	public Hashtable<Object, Variable> globals;
 	String parent;
 	Type type;
 

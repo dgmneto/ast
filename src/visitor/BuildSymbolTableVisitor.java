@@ -30,7 +30,6 @@ import ast.Minus;
 import ast.NewArray;
 import ast.NewObject;
 import ast.Not;
-import ast.Parenthesis;
 import ast.Plus;
 import ast.Print;
 import ast.Program;
@@ -42,7 +41,7 @@ import ast.While;
 
 public class BuildSymbolTableVisitor implements Visitor {
 
-	SymbolTable symbolTable;
+	private SymbolTable symbolTable;
 
 	public BuildSymbolTableVisitor() {
 		symbolTable = new SymbolTable();
@@ -52,8 +51,8 @@ public class BuildSymbolTableVisitor implements Visitor {
 		return symbolTable;
 	}
 
-	private Class currClass;
-	private Method currMethod;
+	private Class currClass = null;
+	private Method currMethod = null;
 
 	// MainClass m;
 	// ClassDeclList cl;
@@ -68,8 +67,20 @@ public class BuildSymbolTableVisitor implements Visitor {
 	// Statement s;
 	public void visit(MainClass n) {
 		n.i1.accept(this);
+		if(!symbolTable.addClass(n.i1.s, null)) {
+			System.out.printf("Redeclaração da classe %s\n", n.i1.s);
+			System.exit(0);
+		}
+		currClass = symbolTable.getClass(n.i1.s);
 		n.i2.accept(this);
+		if(!currClass.addMethod("main", null)) {
+			System.out.printf("Redeclaração do método %s na classe %s\n", "main", currClass.getId());
+			System.exit(0);
+		}
+		currMethod = currClass.getMethod("main");
 		n.s.accept(this);
+		currClass = null;
+		currMethod = null;
 	}
 
 	// Identifier i;
@@ -77,12 +88,18 @@ public class BuildSymbolTableVisitor implements Visitor {
 	// MethodDeclList ml;
 	public void visit(ClassDeclSimple n) {
 		n.i.accept(this);
+		if(!symbolTable.addClass(n.i.s, null)) {
+			System.out.printf("Redeclaração da classe %s\n", n.i.s);
+			System.exit(0);
+		}
+		currClass = symbolTable.getClass(n.i.s);
 		for (int i = 0; i < n.vl.size(); i++) {
 			n.vl.elementAt(i).accept(this);
 		}
 		for (int i = 0; i < n.ml.size(); i++) {
 			n.ml.elementAt(i).accept(this);
 		}
+		currClass = null;
 	}
 
 	// Identifier i;
@@ -92,12 +109,18 @@ public class BuildSymbolTableVisitor implements Visitor {
 	public void visit(ClassDeclExtends n) {
 		n.i.accept(this);
 		n.j.accept(this);
+		if(!symbolTable.addClass(n.i.s, n.j.s)) {
+			System.out.printf("Redeclaração da classe %s\n", n.i.s);
+			System.exit(0);
+		}
+		currClass = symbolTable.getClass(n.i.s);
 		for (int i = 0; i < n.vl.size(); i++) {
 			n.vl.elementAt(i).accept(this);
 		}
 		for (int i = 0; i < n.ml.size(); i++) {
 			n.ml.elementAt(i).accept(this);
 		}
+		currClass = null;
 	}
 
 	// Type t;
@@ -105,6 +128,20 @@ public class BuildSymbolTableVisitor implements Visitor {
 	public void visit(VarDecl n) {
 		n.t.accept(this);
 		n.i.accept(this);
+		if(currMethod != null) {
+			if(currMethod.containsParam(n.i.s)) {
+				System.out.printf("Redeclaração da variável %s no método %s\n", n.i.s, currMethod.getId());
+				System.exit(0);
+			} else if(!currMethod.addVar(n.i.s, n.t)) {
+				System.out.printf("Redeclaração da variável %s no método %s\n", n.i.s, currMethod.getId());
+				System.exit(0);
+			}
+		} else {
+			if(!currClass.addVar(n.i.s, n.t)) {
+				System.out.printf("Redeclaração da variável %s na classe %s\n", n.i.s, currClass.getId());
+				System.exit(0);
+			}
+		}
 	}
 
 	// Type t;
@@ -116,6 +153,11 @@ public class BuildSymbolTableVisitor implements Visitor {
 	public void visit(MethodDecl n) {
 		n.t.accept(this);
 		n.i.accept(this);
+		if(!currClass.addMethod(n.i.s, n.t)) {
+			System.out.printf("Redeclaração do método %s na classe %s\n", n.i.s, currClass.getId());
+			System.exit(0);
+		}
+		currMethod = currClass.getMethod(n.i.s);
 		for (int i = 0; i < n.fl.size(); i++) {
 			n.fl.elementAt(i).accept(this);
 		}
@@ -126,6 +168,7 @@ public class BuildSymbolTableVisitor implements Visitor {
 			n.sl.elementAt(i).accept(this);
 		}
 		n.e.accept(this);
+		currMethod = null;
 	}
 
 	// Type t;
@@ -133,6 +176,10 @@ public class BuildSymbolTableVisitor implements Visitor {
 	public void visit(Formal n) {
 		n.t.accept(this);
 		n.i.accept(this);
+		if(!currMethod.addParam(n.i.s, n.t)) {
+			System.out.printf("Redeclaração do parâmetro %s no método %s\n", n.i.s, currMethod.getId());
+			System.exit(0);
+		}
 	}
 
 	public void visit(IntArrayType n) {
@@ -275,10 +322,5 @@ public class BuildSymbolTableVisitor implements Visitor {
 
 	// String s;
 	public void visit(Identifier n) {
-	}
-	
-	// Exp e
-	public void visit(Parenthesis n) {
-		n.e.accept(this);
 	}
 }
